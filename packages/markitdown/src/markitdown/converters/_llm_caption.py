@@ -29,22 +29,45 @@ def llm_caption(
     # Prepare the data-uri
     data_uri = f"data:{content_type};base64,{base64_image}"
 
-    # Prepare the OpenAI API request
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": data_uri,
-                    },
-                },
-            ],
-        }
-    ]
+    #check client type (langchain wrapper or original OpenAI)
+    client_type = type(client).__module__
 
-    # Call the OpenAI API
-    response = client.chat.completions.create(model=model, messages=messages)
-    return response.choices[0].message.content
+    if "langchain" in client_type or has_attr(client, 'invoke'):
+        #Prepare langchain request
+        content = [
+            {"type": "text", "text": prompt},
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": data_uri,
+                },
+            },
+        ]
+
+        message = {"role": "user", "content": content}
+        try:
+            response = client.invoke([message])
+            return response.content
+        except Exception as e:
+            return None
+             
+    else:
+        # Prepare the OpenAI API request
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": data_uri,
+                        },
+                    },
+                ],
+            }
+        ]
+    
+        # Call the OpenAI API
+        response = client.chat.completions.create(model=model, messages=messages)
+        return response.choices[0].message.content
